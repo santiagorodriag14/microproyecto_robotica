@@ -16,7 +16,7 @@ Este proyecto propone un marco metodológico estructurado para resolver estas in
 
 ## 📂 Estructura del Repositorio
 
-\`\`\`text
+```text
 📦 repositorio-robotica-tof
 ├── 📂 docs/             # Documentación, "Microproyecto Robótica" y "anteproyecto_herramienta.md"
 ├── 📂 hardware/         # Diseños CAD 3D y esquemas de los circuitos de sincronización
@@ -26,18 +26,18 @@ Este proyecto propone un marco metodológico estructurado para resolver estas in
 │   ├── 📂 procesamiento/# Fusión de datos (EKF) y algoritmos de metrología
 │   └── 📂 teleoperacion/# Control remoto, scripts de latencia e interfaz de usuario
 └── 📂 tests/            # Scripts de pruebas unitarias y validación cruzada (R&R)
-\`\`\`
+```
 
 ## 🛠️ Requisitos e Instalación
 
 1. Clona este repositorio en tu máquina local:
-   \`\`\`bash
+   ```bash
    git clone https://github.com/santiagorodriag14/microproyecto_robotica.git
    cd repositorio-robotica-tof
-   \`\`\`
+   ```
 
 2. Instala las dependencias necesarias:
-   \`\`\`bash
+   ```bash
    pip install -r requirements.txt
-   \`\`\`
+   ```
 
