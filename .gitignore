@@ -1,0 +1,56 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ===== Entornos virtuales =====
+venv/
+env/
+.venv/
+ENV/
+
+# ===== Variables de entorno / secretos =====
+.env
+.env.*
+*.local
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== Bases de datos locales =====
+*.sqlite3
+*.db
+
+# ===== Node / JS / Frontend =====
+node_modules/
+dist/
+build/
+.cache/
+.parcel-cache/
+
+# ===== IDEs y editores =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== Sistema operativo =====
+.DS_Store
+Thumbs.db
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+
+# ===== Otros =====
+*.bak
+*.tmp
+coverage/
+.pytest_cache/
+.mypy_cache/
