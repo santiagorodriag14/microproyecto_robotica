@@ -119,7 +119,7 @@ En una terminal:
 ```bash
 source ~/microros_ws/install/setup.bash
 source ~/Risky/risky_ws/install/setup.bash
-ros2 launch risky_tools robot.launch.py camera_url:=http://172.20.10.3:81/stream
+ros2 launch risky_tools robot.launch.py camera_url:=http://172.20.10.2:81/stream
 ```
 
 Cambie `172.20.10.3` por la IP actual de la cámara. Se abren tres ventanas: Gazebo, RViz y el panel de datos.
