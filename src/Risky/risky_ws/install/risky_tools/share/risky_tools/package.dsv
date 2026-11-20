@@ -1,0 +1,9 @@
+source;share/risky_tools/hook/pythonpath.ps1
+source;share/risky_tools/hook/pythonpath.dsv
+source;share/risky_tools/hook/pythonpath.sh
+source;share/risky_tools/hook/ament_prefix_path.ps1
+source;share/risky_tools/hook/ament_prefix_path.dsv
+source;share/risky_tools/hook/ament_prefix_path.sh
+source;../../build/risky_tools/share/risky_tools/hook/pythonpath_develop.ps1
+source;../../build/risky_tools/share/risky_tools/hook/pythonpath_develop.dsv
+source;../../build/risky_tools/share/risky_tools/hook/pythonpath_develop.sh

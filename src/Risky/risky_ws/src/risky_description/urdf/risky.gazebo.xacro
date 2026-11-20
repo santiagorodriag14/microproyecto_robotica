@@ -1,0 +1,97 @@
+<?xml version="1.0"?>
+<!-- Plugins y sensores de Gazebo Fortress. robot_state_publisher y RViz ignoran las etiquetas <gazebo>. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <gazebo>
+    <!-- Skid-steer aproximado con DiffDrive: si gira menos de lo pedido, subir wheel_separation. -->
+    <plugin filename="ignition-gazebo-diff-drive-system" name="ignition::gazebo::systems::DiffDrive">
+      <left_joint>Rueda_l1_Joint</left_joint>
+      <left_joint>Rueda_l2_Joint</left_joint>
+      <left_joint>Rueda_l3_Joint</left_joint>
+      <left_joint>Rueda_l4_Joint</left_joint>
+      <right_joint>Rueda_r1_Joint</right_joint>
+      <right_joint>Rueda_r2_Joint</right_joint>
+      <right_joint>Rueda_r3_Joint</right_joint>
+      <right_joint>Rueda_r4_Joint</right_joint>
+      <wheel_separation>0.255</wheel_separation>
+      <wheel_radius>${wheel_radius}</wheel_radius>
+      <topic>/model/risky/cmd_vel</topic>
+      <odom_topic>/model/risky/odometry</odom_topic>
+      <tf_topic>/model/risky/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <odom_publish_frequency>30</odom_publish_frequency>
+    </plugin>
+
+    <plugin filename="ignition-gazebo-joint-state-publisher-system"
+            name="ignition::gazebo::systems::JointStatePublisher">
+      <topic>/model/risky/joint_state</topic>
+    </plugin>
+  </gazebo>
+
+  <!-- Empuje en newtons a lo largo del eje de la hélice. Con velocity_control la hélice solo gira
+       para verse; la velocidad sale de fluid_density y propeller_diameter (~100 rad/s a 7 N). -->
+  <xacro:macro name="thruster" params="joint">
+    <gazebo>
+      <plugin filename="ignition-gazebo-thruster-system" name="ignition::gazebo::systems::Thruster">
+        <namespace>risky</namespace>
+        <joint_name>${joint}</joint_name>
+        <fluid_density>1.225</fluid_density>
+        <propeller_diameter>0.157</propeller_diameter>
+        <velocity_control>true</velocity_control>
+      </plugin>
+    </gazebo>
+  </xacro:macro>
+  <xacro:thruster joint="Aspa_front_Joint"/>
+  <xacro:thruster joint="Aspa_back_Joint"/>
+
+  <gazebo reference="imu_link">
+    <sensor name="imu" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <topic>/sim/imu</topic>
+      <gz_frame_id>imu_link</gz_frame_id>
+    </sensor>
+  </gazebo>
+
+  <!-- Un solo rayo, como el VL53L0X; el bridge lo convierte a sensor_msgs/Range. -->
+  <gazebo reference="tof_link">
+    <sensor name="tof" type="gpu_lidar">
+      <always_on>true</always_on>
+      <update_rate>20</update_rate>
+      <visualize>true</visualize>
+      <topic>/sim/tof</topic>
+      <gz_frame_id>tof_link</gz_frame_id>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>1</samples>
+            <resolution>1</resolution>
+            <min_angle>0</min_angle>
+            <max_angle>0</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.03</min>
+          <max>1.2</max>
+          <resolution>0.001</resolution>
+        </range>
+      </lidar>
+    </sensor>
+  </gazebo>
+
+  <!-- ESP32-CAM (OV2640): 320x240 a 15 Hz, campo de visión horizontal ~66°. -->
+  <gazebo reference="camera_link">
+    <sensor name="camera" type="camera">
+      <always_on>true</always_on>
+      <update_rate>15</update_rate>
+      <topic>/sim/camera/image</topic>
+      <gz_frame_id>camera_optical_link</gz_frame_id>
+      <camera>
+        <horizontal_fov>1.15</horizontal_fov>
+        <image><width>320</width><height>240</height><format>R8G8B8</format></image>
+        <clip><near>0.02</near><far>10</far></clip>
+      </camera>
+    </sensor>
+  </gazebo>
+</robot>

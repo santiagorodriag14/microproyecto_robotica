@@ -1,0 +1,69 @@
+# Lado ROS: los mismos tópicos que publica y escucha el robot real por micro-ROS.
+# Lado Gazebo: los tópicos de los plugins definidos en risky.gazebo.xacro.
+
+- ros_topic_name: /clock
+  gz_topic_name: /clock
+  ros_type_name: rosgraph_msgs/msg/Clock
+  gz_type_name: gz.msgs.Clock
+  direction: GZ_TO_ROS
+
+# Llega por thrust_adapter, que acepta el best effort del ESP32.
+- ros_topic_name: /sim/cmd_vel
+  gz_topic_name: /model/risky/cmd_vel
+  ros_type_name: geometry_msgs/msg/Twist
+  gz_type_name: gz.msgs.Twist
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /sim/thrust_front_n
+  gz_topic_name: /model/risky/joint/Aspa_front_Joint/cmd_thrust
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /sim/thrust_rear_n
+  gz_topic_name: /model/risky/joint/Aspa_back_Joint/cmd_thrust
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /risky/imu/data_raw
+  gz_topic_name: /sim/imu
+  ros_type_name: sensor_msgs/msg/Imu
+  gz_type_name: gz.msgs.IMU
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /risky/tof/range
+  gz_topic_name: /sim/tof
+  ros_type_name: sensor_msgs/msg/Range
+  gz_type_name: gz.msgs.LaserScan
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /risky/camera/image_raw
+  gz_topic_name: /sim/camera/image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /risky/camera/camera_info
+  gz_topic_name: /sim/camera/camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /risky/odom
+  gz_topic_name: /model/risky/odometry
+  ros_type_name: nav_msgs/msg/Odometry
+  gz_type_name: gz.msgs.Odometry
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /tf
+  gz_topic_name: /model/risky/tf
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /joint_states
+  gz_topic_name: /model/risky/joint_state
+  ros_type_name: sensor_msgs/msg/JointState
+  gz_type_name: gz.msgs.Model
+  direction: GZ_TO_ROS

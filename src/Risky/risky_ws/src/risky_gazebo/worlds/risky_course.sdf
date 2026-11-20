@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<!-- Pista de transiciones: suelo, pared frente al robot (cara en x = 0.8 m) y techo a 1 m unido a la pared. -->
+<sdf version="1.8">
+  <world name="risky_course">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <!-- Solver PGS: con el solver por defecto (Dantzig) las ruedas patinan contra la pared y
+           el segmento delantero nunca se levanta. Con PGS la transición suelo -> pared funciona. -->
+      <dart>
+        <solver><solver_type>pgs</solver_type></solver>
+      </dart>
+    </physics>
+
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <!-- El ToF es un gpu_lidar: necesita render. En máquinas virtuales sin aceleración probar con "ogre". -->
+    <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="ignition-gazebo-imu-system" name="ignition::gazebo::systems::Imu"/>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.3 -0.9</direction>
+    </light>
+
+    <!-- mu alto en las superficies para que la fricción la defina la rueda (wheel_mu en el URDF). -->
+    <model name="suelo">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>6 6</size></plane></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>6 6</size></plane></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="pared">
+      <static>true</static>
+      <pose>0.85 0 0.55 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.1 2 1.1</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.1 2 1.1</size></box></geometry>
+          <material><ambient>0.75 0.55 0.45 1</ambient><diffuse>0.75 0.55 0.45 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="techo">
+      <static>true</static>
+      <pose>0.1 0 1.05 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>1.6 2 0.1</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>1.6 2 0.1</size></box></geometry>
+          <material><ambient>0.8 0.8 0.75 1</ambient><diffuse>0.8 0.8 0.75 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>

@@ -1,0 +1,163 @@
+<?xml version="1.0"?>
+<!-- Basado en el export de SolidWorks (urdf_risky). Los cambios respecto al export están en el README. -->
+<robot name="risky" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:property name="meshes" value="package://risky_description/meshes"/>
+  <xacro:property name="wheel_radius" value="0.0175"/>
+  <xacro:property name="wheel_width" value="0.025"/>
+  <xacro:property name="wheel_mu" value="1.0"/>
+  <!-- Batería y electrónica que el CAD no trae: masa medida del robot menos 1,30 kg. -->
+  <xacro:property name="payload_mass" value="0.70"/>
+  <xacro:property name="payload_x" value="0.10"/>
+  <xacro:property name="payload_y" value="0.07"/>
+  <xacro:property name="payload_z" value="0.03"/>
+
+  <material name="claro"><color rgba="0.894 0.894 0.894 1"/></material>
+  <material name="naranja"><color rgba="0.910 0.443 0.031 1"/></material>
+  <material name="negro"><color rgba="0.098 0.098 0.098 1"/></material>
+
+  <!-- Segmento trasero: lleva la PCB con la IMU y la turbina trasera. -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-0.098856 -0.00062639 0.024345"/>
+      <mass value="0.60725"/>
+      <inertia ixx="0.0020429" ixy="1.9277E-07" ixz="4.0203E-06"
+               iyy="0.0016671" iyz="1.228E-07" izz="0.0034081"/>
+    </inertial>
+    <visual>
+      <geometry><mesh filename="${meshes}/base_link.STL"/></geometry>
+      <material name="claro"/>
+    </visual>
+    <!-- Caja envolvente del mesh: la malla completa (54 k triángulos) vuelve lenta e inestable la física. -->
+    <collision>
+      <origin xyz="-0.0972 0.0002 0.0309"/>
+      <geometry><box size="0.288 0.270 0.096"/></geometry>
+    </collision>
+  </link>
+
+  <link name="Chasis_frontal_Link">
+    <inertial>
+      <origin xyz="0.11982 0.028837 -0.0041216"/>
+      <mass value="0.51255"/>
+      <inertia ixx="0.0020082" ixy="-7.1373E-06" ixz="-1.6582E-07"
+               iyy="0.0036612" iyz="4.399E-07" izz="0.0019505"/>
+    </inertial>
+    <visual>
+      <geometry><mesh filename="${meshes}/Chasis_frontal_Link.STL"/></geometry>
+      <material name="claro"/>
+    </visual>
+    <collision>
+      <origin xyz="0.119 0.057 -0.0086"/>
+      <geometry><box size="0.256 0.136 0.283"/></geometry>
+    </collision>
+  </link>
+
+  <!-- Pivote pasivo entre segmentos. Positivo = el segmento delantero sube. -->
+  <joint name="Chasis_frontal_Joint" type="revolute">
+    <!-- El export traía un cabeceo de -0.0086 rad que dejaba las ruedas delanteras 2 mm en el aire. -->
+    <origin xyz="0.041814 -0.0018511 -0.005" rpy="1.5708 0 0"/>
+    <parent link="base_link"/>
+    <child link="Chasis_frontal_Link"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="0" upper="1.571" effort="3" velocity="2"/>
+    <dynamics damping="0.05" friction="0.1"/>
+  </joint>
+
+  <xacro:macro name="wheel" params="name parent xyz rpy material">
+    <link name="${name}_Link">
+      <inertial>
+        <mass value="0.020935"/>
+        <inertia ixx="2.4246E-06" ixy="0" ixz="0" iyy="2.4246E-06" iyz="0" izz="2.8231E-06"/>
+      </inertial>
+      <visual>
+        <geometry><mesh filename="${meshes}/${name}_Link.STL"/></geometry>
+        <material name="${material}"/>
+      </visual>
+      <collision>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+      </collision>
+    </link>
+    <joint name="${name}_Joint" type="continuous">
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+      <parent link="${parent}"/>
+      <child link="${name}_Link"/>
+      <!-- El export traía 0 0 1: con ese eje una velocidad positiva hacía retroceder al robot. -->
+      <axis xyz="0 0 -1"/>
+      <limit effort="1.0" velocity="6"/>
+      <dynamics damping="0.0" friction="0.0"/>
+    </joint>
+    <gazebo reference="${name}_Link">
+      <mu1>${wheel_mu}</mu1>
+      <mu2>${wheel_mu}</mu2>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:wheel name="Rueda_r1" parent="base_link" xyz="-0.23219 -0.11665 -0.005" rpy="1.5708 0 0" material="negro"/>
+  <xacro:wheel name="Rueda_r2" parent="base_link" xyz="-0.031186 -0.13795 -0.005" rpy="1.5708 0 0" material="naranja"/>
+  <xacro:wheel name="Rueda_l1" parent="base_link" xyz="-0.23219 0.11695 -0.005" rpy="1.5708 0 0" material="naranja"/>
+  <xacro:wheel name="Rueda_l2" parent="base_link" xyz="-0.031186 0.13825 -0.005" rpy="1.5708 0 0" material="naranja"/>
+  <xacro:wheel name="Rueda_r3" parent="Chasis_frontal_Link" xyz="0 0 0.1361" rpy="0 0 0" material="naranja"/>
+  <xacro:wheel name="Rueda_r4" parent="Chasis_frontal_Link" xyz="0.238 0 0.1148" rpy="0 0 0" material="naranja"/>
+  <xacro:wheel name="Rueda_l3" parent="Chasis_frontal_Link" xyz="0 0 -0.1401" rpy="0 0 0" material="naranja"/>
+  <xacro:wheel name="Rueda_l4" parent="Chasis_frontal_Link" xyz="0.238 0 -0.1188" rpy="0 0 0" material="negro"/>
+
+  <!-- El eje de cada hélice apunta hacia la superficie: ahí aplica el empuje el plugin Thruster. -->
+  <xacro:macro name="propeller" params="name parent xyz rpy">
+    <link name="${name}_Link">
+      <inertial>
+        <mass value="0.00395"/>
+        <inertia ixx="2.84E-06" ixy="0" ixz="0" iyy="2.84E-06" iyz="0" izz="5.66E-06"/>
+      </inertial>
+      <visual>
+        <geometry><mesh filename="${meshes}/${name}_Link.STL"/></geometry>
+        <material name="negro"/>
+      </visual>
+    </link>
+    <joint name="${name}_Joint" type="continuous">
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+      <parent link="${parent}"/>
+      <child link="${name}_Link"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="0.1" velocity="100"/>
+      <dynamics damping="0.0001"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:propeller name="Aspa_back" parent="base_link" xyz="-0.13449 0.00014892 0.024225" rpy="3.1416 0 0"/>
+  <xacro:propeller name="Aspa_front" parent="Chasis_frontal_Link" xyz="0.1403 0.029225 -0.002" rpy="1.5708 0 0"/>
+
+  <xacro:macro name="fixed_frame" params="name parent xyz rpy">
+    <link name="${name}"/>
+    <joint name="${name}_joint" type="fixed">
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+      <parent link="${parent}"/>
+      <child link="${name}"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Posiciones estimadas: reemplazar por las del CAD. La orientación debe coincidir con los ejes impresos en cada módulo. -->
+  <!-- IMU en la PCB del segmento trasero, chip con z hacia arriba y x hacia adelante. -->
+  <xacro:fixed_frame name="imu_link" parent="base_link" xyz="-0.099 0 0.03" rpy="0 0 0"/>
+  <!-- ToF en el costado izquierdo del segmento delantero, con el haz (eje x) hacia la superficie. -->
+  <xacro:fixed_frame name="tof_link" parent="Chasis_frontal_Link" xyz="0.12 0.02 -0.125" rpy="0 0 -1.5708"/>
+  <!-- ESP32-CAM al frente del segmento delantero, mirando hacia adelante (x) con z hacia arriba. -->
+  <xacro:fixed_frame name="camera_link" parent="Chasis_frontal_Link" xyz="0.26 0.03 0" rpy="-1.5708 0 0"/>
+  <!-- Marco óptico estándar de ROS (z hacia adelante, x a la derecha, y hacia abajo) para sensor_msgs/Image. -->
+  <xacro:fixed_frame name="camera_optical_link" parent="camera_link" xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+
+  <link name="payload_link">
+    <inertial>
+      <mass value="${payload_mass}"/>
+      <inertia ixx="${payload_mass / 12 * (payload_y**2 + payload_z**2)}" ixy="0" ixz="0"
+               iyy="${payload_mass / 12 * (payload_x**2 + payload_z**2)}" iyz="0"
+               izz="${payload_mass / 12 * (payload_x**2 + payload_y**2)}"/>
+    </inertial>
+  </link>
+  <joint name="payload_joint" type="fixed">
+    <origin xyz="-0.099 0 0.02"/>
+    <parent link="base_link"/>
+    <child link="payload_link"/>
+  </joint>
+
+  <xacro:include filename="$(find risky_description)/urdf/risky.gazebo.xacro"/>
+</robot>

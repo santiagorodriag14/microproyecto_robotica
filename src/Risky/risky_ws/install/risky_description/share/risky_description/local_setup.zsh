@@ -1,0 +1,1 @@
+/home/santiagorodriag/Risky/risky_ws/build/risky_description/ament_cmake_environment_hooks/local_setup.zsh
