@@ -25,6 +25,7 @@ setup(
             'thrust_adapter = risky_tools.thrust_adapter:main',
             'camera_bridge = risky_tools.camera_bridge:main',
             'dashboard = risky_tools.dashboard:main',
+            'twin_estimator = risky_tools.twin_estimator:main',
         ],
     },
 )

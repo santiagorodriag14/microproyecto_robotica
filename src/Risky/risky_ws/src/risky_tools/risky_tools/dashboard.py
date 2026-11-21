@@ -8,10 +8,14 @@ import time
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 import rclpy
+import rclpy.time
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import CompressedImage, Image, Imu, Range
+from tf2_ros import Buffer, TransformException, TransformListener
+
+from risky_tools.twin_estimator import rotation_matrix
 
 WINDOW_S = 10.0
 STALE_S = 1.0
@@ -71,6 +75,12 @@ class DashboardNode(Node):
         self.max_range = None
         self.frame = None
         self.frame_seq = 0
+        self.imu_frame = 'imu_link'
+        self.imu_mount = None
+        # Las gráficas muestran los ejes del chip. La inclinación se da en los del robot, que
+        # necesitan el montaje del URDF (lo publica robot_state_publisher).
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
         self.create_subscription(Imu, '/risky/imu/data_raw', self.on_imu, qos_profile_sensor_data)
         self.create_subscription(Range, '/risky/tof/range', self.on_range, qos_profile_sensor_data)
         self.create_subscription(CompressedImage, '/risky/camera/image/compressed',
@@ -81,8 +91,20 @@ class DashboardNode(Node):
     def on_imu(self, msg):
         a, w = msg.linear_acceleration, msg.angular_velocity
         with self.lock:
+            self.imu_frame = msg.header.frame_id or self.imu_frame
             self.accel.add((a.x, a.y, a.z))
             self.gyro.add(tuple(math.degrees(v) for v in (w.x, w.y, w.z)))
+
+    def to_robot_axes(self, vector):
+        """Vector del chip en ejes de base_link, o None mientras no haya TF."""
+        if self.imu_mount is None:
+            try:
+                r = self.tf_buffer.lookup_transform('base_link', self.imu_frame,
+                                                    rclpy.time.Time()).transform.rotation
+            except TransformException:
+                return None
+            self.imu_mount = rotation_matrix((r.w, r.x, r.y, r.z))
+        return self.imu_mount @ vector
 
     def on_range(self, msg):
         with self.lock:
@@ -362,6 +384,9 @@ class Dashboard(QtWidgets.QMainWindow):
 
         if accel and rates['IMU'][1] < STALE_S:
             ax, ay, az = accel[-1][1]
+            robot = self.node.to_robot_axes(accel[-1][1])
+            if robot is not None:
+                ax, ay, az = robot
             # Solo vale con el robot casi quieto: la aceleración propia se suma a la gravedad.
             self.roll.setText(f'{math.degrees(math.atan2(ay, az)):+.1f}°')
             self.pitch.setText(f'{math.degrees(math.atan2(-ax, math.hypot(ay, az))):+.1f}°')

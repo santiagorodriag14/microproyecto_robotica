@@ -119,7 +119,7 @@ En una terminal:
 ```bash
 source ~/microros_ws/install/setup.bash
 source ~/Risky/risky_ws/install/setup.bash
-ros2 launch risky_tools robot.launch.py camera_url:=http://172.20.10.2:81/stream
+ros2 launch risky_tools robot.launch.py camera_url:=http://172.20.10.3:81/stream
 ```
 
 Cambie `172.20.10.3` por la IP actual de la cámara. Se abren tres ventanas: Gazebo, RViz y el panel de datos.
@@ -132,11 +132,12 @@ Este launch arranca:
 | `camera_bridge` | Lee el video de la ESP32-CAM y lo publica en `/risky/camera/image/compressed` |
 | `dashboard` | El panel de datos |
 | Gazebo + `ros_gz_bridge` | La simulación y la traducción de sus tópicos a ROS 2 |
-| `thrust_adapter` | Pasa los comandos del radio a la simulación (turbinas en newtons y `cmd_vel`) |
+| `twin_estimator` | Estima la pose del robot real con la IMU y mueve con ella los modelos de Gazebo y RViz |
+| `set_pose_bridge` | Deja a `twin_estimator` llamar al servicio `set_pose` de Gazebo |
 | `robot_state_publisher` | Publica el árbol de TF del modelo |
 | `rviz2` | Visualización 3D |
 
-Con el robot real activo, la simulación funciona como **gemelo**: el radio mueve el robot de verdad y también el de Gazebo. Los sensores simulados se publican aparte, en `/sim/risky/...`, para que no se mezclen con los reales.
+Con el robot real activo, la simulación funciona como **gemelo digital** (sección 5.4). Los sensores simulados se publican aparte, en `/sim/risky/...`, para que no se mezclen con los reales.
 
 ### 5.2 Otros modos
 
@@ -160,9 +161,44 @@ Con el robot real activo, la simulación funciona como **gemelo**: el radio muev
 | `sim` | `true` | Lanza Gazebo con el bridge |
 | `rviz` | `true` | Lanza RViz |
 | `max_thrust_n` | `20.0` | Empuje de cada turbina al 100 % en la simulación, en newtons |
+| `speed_scale` | `1.0` | Corrección de la velocidad del gemelo (sección 5.4) |
+| `yaw0` | `0.0` | Rumbo inicial del gemelo: `0.0` mirando a la pared, `3.1416` de espaldas a ella |
 | `dashboard` | `true` | Abre el panel |
 
 Para ver la lista en la terminal: `ros2 launch risky_tools robot.launch.py --show-args`.
+
+### 5.4 El gemelo digital
+
+Cuando `agent` y `sim` están activos, el robot de Gazebo y el de RViz ya no los mueve la física. Los ubica `twin_estimator` con lo que mide el robot real:
+
+- **Orientación:** sale de la IMU. El giroscopio da cuánto gira el robot y el acelerómetro corrige el alabeo y el cabeceo con la dirección de la gravedad. Si el robot se inclina en la pared, el modelo se inclina igual.
+- **Posición:** el robot avanza a lo largo de su propio eje x con la velocidad de `/risky/cmd_vel`. Ese eje sale de la orientación, así que en el suelo avanza horizontal, en la pared sube y en el techo vuelve a ser horizontal.
+- **Apoyo en las ruedas:** la IMU va en el segmento trasero, así que la orientación estimada es la de ese segmento. El nodo conoce el suelo, la pared (x = 0,80 m) y el techo (z = 1,0 m) de `risky_course.sdf`. Apoya las ruedas traseras en la superficie que el robot tiene debajo y no deja que ninguna rueda las atraviese. A la articulación delantera le da el menor ángulo con el que sus ruedas quedan sobre la superficie de enfrente. Funciona en los dos sentidos:
+  - **De frente:** primero sube el segmento delantero y el trasero sigue plano. Después, a medida que la IMU se inclina, la bisagra se vuelve a enderezar.
+  - **De reversa (recomendado):** primero se inclina el segmento trasero, con la cola en la pared y la bisagra en el suelo, y el delantero sigue plano. Cuando el trasero ya está vertical y sube, la bisagra se endereza y el segmento delantero pasa a la pared.
+
+  Es mejor subir de reversa porque la IMU va en el segmento que se inclina primero, así que la esquina se calcula con lo que se mide y no con lo que se supone. En el techo pasa lo mismo.
+- **Corrección del rumbo con la pared:** el giroscopio acumula error de rumbo, sobre todo en los giros. Pero un robot apoyado en la pared, o en la esquina con un eje en el suelo y otro en la pared, solo puede estar perpendicular a ella. Cuando el segmento trasero se inclina más de 20° tocando la pared, el estimador corrige el rumbo hacia esa dirección en menos de un segundo. Así, cada subida endereza el rumbo aunque venga torcido.
+- En Gazebo, el modelo del gemelo tiene física pero sin tracción ni empuje. `VelocityControl` lo mantiene quieto, `set_pose` lo ubica a 20 Hz y `JointPositionController` dobla la articulación. La cámara y el ToF simulados ven desde la pose estimada del robot real.
+- RViz usa la hora del PC, la misma con la que el ESP32 sella sus mensajes. Por eso ahora dibuja el ToF real.
+
+Para que la pose sea buena:
+
+1. **Ponga el robot en el origen de Gazebo antes de encenderlo:** con el centro del segmento trasero a 0,80 m de la pared. El gemelo arranca ahí. Si lo pone de espaldas a la pared para subir de reversa, lance con `yaw0:=3.1416`.
+2. **Déjelo quieto 2 s al encender**, para que el firmware calibre el giroscopio. Después, `twin_estimator` necesita otros 2 s quieto en el suelo para nivelarse. Toma como plano lo que mide la IMU en ese momento y descuenta la inclinación del chip dentro del robot (unos 5° en el robot actual). En la terminal aparece `Nivelado: chip inclinado X° respecto al piso`. Si el robot se mueve antes, espera a que vuelva a estar quieto. Lo mismo pasa con `reset`. Cada vez que el robot está quieto más de 1 s, el nodo reajusta además el sesgo del giroscopio. Si el piso del arranque no está a nivel, desactive la nivelación con el parámetro `level_at_start:=false` de `twin_estimator`.
+3. **Compruebe el montaje de la IMU una vez.** Con el robot conectado, levante la cola (el segmento trasero) con la mano y mire:
+
+   ```bash
+   ros2 topic echo /risky/imu/data_raw --qos-reliability best_effort --field linear_acceleration.x
+   ```
+
+   Con el chip montado con su x hacia la cola, como está declarado en el URDF (`imu_link` con `rpy="0 0 3.1416"`), el valor debe ser positivo, porque el eje x del chip queda apuntando hacia arriba. En RViz, la cola del gemelo debe subir. Si el valor sale negativo y en RViz sube la nariz, el chip va con su x hacia adelante: cambie el yaw de `imu_link` a `0` en `risky.urdf.xacro`. El estimador y el panel toman el montaje del URDF, así que no hay que tocar nada más.
+4. **Calibre la velocidad una vez.** Avance a fondo en línea recta, mida la distancia real con una cinta y compárela con la de `ros2 topic echo /risky/odom --field pose.pose.position`. Lance con `speed_scale:=<real / gemelo>`. Si la diferencia es grande, también conviene corregir `kMaxWheelSpeedMps` en `config.h`.
+5. **Para volver al punto de partida**, ponga el robot otra vez en el origen y ejecute:
+
+   ```bash
+   ros2 service call /risky/twin/reset std_srvs/srv/Trigger
+   ```
 
 ---
 
@@ -207,7 +243,7 @@ Comportamiento que conviene conocer:
 - **Palanca suelta:** las ruedas frenan (freno corto del TB6612).
 - **La velocidad sube en rampa** en unos 0,5 s, no de golpe.
 - **Sin señal del radio:** las ruedas frenan, pero **las turbinas mantienen la última potencia**, para que el robot no se caiga de la pared. Para apagarlas hay que recuperar la señal y bajar las perillas, o cortar SW1.
-- En el modo gemelo, Gazebo recibe los mismos comandos. El robot simulado avanza y gira igual que el real, y sus turbinas empujan con `max_thrust_n × nivel²` newtons.
+- En el modo gemelo, el modelo de Gazebo sigue la pose estimada del robot real (sección 5.4). El empuje simulado (`max_thrust_n × nivel²`) solo actúa en el modo de solo simulación.
 
 Para pasar a la pared se necesita un empuje total de al menos m·g/μ. Con 2 kg y μ = 0,6 son unos 33 N.
 
@@ -254,7 +290,8 @@ ros2 topic hz /risky/tof/range                   # ~20 Hz
 ros2 topic hz /risky/camera/image/compressed     # fps de la cámara
 ros2 topic echo /risky/cmd_vel                   # mueva la palanca y mire si cambia
 ros2 topic echo /risky/thrust                    # mueva las perillas
-ros2 topic echo /risky/odom --field pose.pose.position   # posición del robot en Gazebo
+ros2 topic echo /risky/odom --field pose.pose.position   # posición del gemelo (o del robot de Gazebo)
+ros2 service call /risky/twin/reset std_srvs/srv/Trigger  # gemelo de vuelta al origen
 ros2 run rqt_graph rqt_graph                     # mapa de nodos y tópicos
 ```
 
@@ -301,10 +338,12 @@ El ESP32 publica en modo *best effort*. Si un `echo` no muestra nada aunque `top
 | `/risky/thrust` | `std_msgs/Float32MultiArray` | ESP32 o `keyboard_teleop`. `[delantera, trasera]` de 0 a 1 | 20 Hz |
 | `/risky/camera/image/compressed` | `sensor_msgs/CompressedImage` | `camera_bridge` (JPEG) | según la cámara |
 | `/risky/camera/image_raw` | `sensor_msgs/Image` | Gazebo, solo en modo simulación | 15 Hz |
-| `/risky/odom` | `nav_msgs/Odometry` | Gazebo (DiffDrive) | ~30 Hz |
+| `/risky/odom` | `nav_msgs/Odometry` | `twin_estimator` en modo gemelo, Gazebo (DiffDrive) en solo simulación | 20 Hz / ~30 Hz |
 | `/sim/risky/...` | | Sensores de Gazebo en modo gemelo | |
-| `/sim/cmd_vel`, `/sim/thrust_*_n` | | `thrust_adapter` hacia Gazebo | 20 Hz |
-| `/tf`, `/tf_static`, `/joint_states` | | Gazebo y `robot_state_publisher` | |
+| `/sim/cmd_vel`, `/sim/thrust_*_n` | | `thrust_adapter` hacia Gazebo, solo en simulación | 20 Hz |
+| `/tf`, `/joint_states` | | `twin_estimator` en modo gemelo, Gazebo en solo simulación | |
+| `/tf_static` | | `robot_state_publisher` | |
+| `/world/risky_course/set_pose` | servicio `ros_gz_interfaces/SetEntityPose` | `set_pose_bridge`, lo llama `twin_estimator` | 20 Hz |
 | `/clock` | `rosgraph_msgs/Clock` | Gazebo (tiempo simulado) | un mensaje por paso de física |
 
 Si escribe un nodo que se suscribe a tópicos del ESP32, use `qos_profile_sensor_data`. Con la QoS por defecto (*reliable*), ROS 2 no lo conecta con un publicador *best effort* y no llega nada.
@@ -313,9 +352,12 @@ Si escribe un nodo que se suscribe a tópicos del ESP32, use `qos_profile_sensor
 
 ## 13. Limitaciones conocidas
 
-- **ToF real en RViz.** En modo gemelo, RViz no lo dibuja. El ToF llega con la hora real y la TF de Gazebo usa el tiempo simulado, así que RViz descarta el mensaje. El panel sí lo muestra.
+- **Deriva del gemelo.** No hay magnetómetro ni encoders: el rumbo se integra del giroscopio y la distancia sale del comando, no de lo que giraron las ruedas. Si las ruedas patinan o el robot se empuja con la mano, el gemelo no se entera. Con el robot quieto el error no crece, pero en movimiento se acumula, así que conviene hacer `reset` en cada vuelta.
+- **Cortes de WiFi.** En los giros rápidos llegan huecos de 1 a 2,5 s sin datos de la IMU. `twin_estimator` los integra interpolando entre la lectura de antes y la de después, lo que funciona bien con un giro parejo. Un hueco de más de 5 s (`max_gap_s`) no se integra y el gemelo pierde ese tramo: haga `reset`. La solución de fondo es que el ESP32 integre el giro a 200 Hz y publique la orientación, de modo que un corte no borre información.
+- **Articulación delantera.** No tiene sensor: su ángulo se deduce del contacto con la pared y el techo. Si el robot real levanta la nariz por otra razón (un obstáculo, la mano), el gemelo no lo ve.
+- **Mundo fijo.** El contacto usa la posición de la pared y del techo de `risky_course.sdf`, copiada en los parámetros `wall_x` y `ceiling_z` de `twin_estimator`. Si se cambia el circuito, hay que cambiar esos parámetros. Tampoco se tienen en cuenta los bordes: el nodo trata la pared y el techo como planos infinitos.
 - **Inclinación del panel.** Sale solo del acelerómetro, así que en movimiento no es confiable. El firmware tiene un filtro que combina giroscopio y acelerómetro (`GravityFilter`), pero no se usa en el firmware principal ni se publica.
-- **CPU de `thrust_adapter`.** Corre con el reloj de Gazebo y procesa `/clock` a cientos de mensajes por segundo, lo que le cuesta más del 60 % de un núcleo.
+- **CPU de `thrust_adapter`.** En solo simulación corre con el reloj de Gazebo y procesa `/clock` a cientos de mensajes por segundo, lo que le cuesta más del 60 % de un núcleo. En modo gemelo no se lanza.
 - **IMU simulada a 100 Hz y real a 20 Hz.** Tenerlo en cuenta al comparar gráficas.
 - **Copias del bridge en `/tmp`.** El modo gemelo deja una copia de `bridge.yaml` (`/tmp/risky_bridge_*.yaml`) cada vez que se lanza. Se pueden borrar sin problema.
 - **Valores sin medir.** Masa de la carga, fricción de las ruedas, empuje real de las turbinas y posición de los sensores siguen estimados. La tabla "Valores que hay que medir" de `risky_ws/README.md` explica cómo medir cada uno. Hasta entonces, la simulación es solo orientativa.

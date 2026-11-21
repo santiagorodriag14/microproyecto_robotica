@@ -1,6 +1,9 @@
 """Robot real y simulación juntos: agente micro-ROS (IMU y ToF), puente de la ESP32-CAM,
 Gazebo con RViz y panel de datos.
 
+Con agente y simulación a la vez se arma el gemelo digital: twin_estimator calcula la pose del
+robot real y mueve con ella el modelo de Gazebo y el de RViz.
+
 El agente vive en otro workspace: antes de lanzar, source ~/microros_ws/install/setup.bash
 """
 import os
@@ -14,9 +17,12 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 import yaml
 
 REAL_SENSOR_TOPICS = ('/risky/imu/', '/risky/tof/', '/risky/camera/')
+# En el gemelo los publica twin_estimator, no la física de Gazebo.
+TWIN_OWNED_TOPICS = ('/risky/odom', '/tf', '/joint_states')
 
 
 def is_true(context, name):
@@ -36,10 +42,17 @@ def micro_ros_agent(context):
                  output='screen')]
 
 
-def twin_bridge_config(source):
+def twin_bridge_config(source, twin):
     """Copia del bridge con los sensores simulados en /sim/risky/... para no mezclarlos con los reales."""
     with open(source) as f:
         entries = yaml.safe_load(f)
+    if twin:
+        entries = [e for e in entries
+                   if e['direction'] == 'GZ_TO_ROS' and e['ros_topic_name'] not in TWIN_OWNED_TOPICS]
+        entries.append({'ros_topic_name': '/sim/twin/front_joint',
+                        'gz_topic_name': '/model/risky/joint/Chasis_frontal_Joint/cmd_pos',
+                        'ros_type_name': 'std_msgs/msg/Float64', 'gz_type_name': 'gz.msgs.Double',
+                        'direction': 'ROS_TO_GZ'})
     for entry in entries:
         topic = entry['ros_topic_name']
         if entry['direction'] == 'GZ_TO_ROS' and topic.startswith(REAL_SENSOR_TOPICS):
@@ -56,13 +69,22 @@ def simulation(context):
     # risky_gazebo ya depende de risky_tools; declararlo al revés crearía un ciclo en colcon.
     gazebo_share = get_package_share_directory('risky_gazebo')
     bridge = os.path.join(gazebo_share, 'config', 'bridge.yaml')
-    if is_true(context, 'agent') or is_true(context, 'camera'):
-        bridge = twin_bridge_config(bridge)
-    return [IncludeLaunchDescription(
+    twin = is_true(context, 'agent')
+    if twin or is_true(context, 'camera'):
+        bridge = twin_bridge_config(bridge, twin)
+    actions = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(gazebo_share, 'launch', 'sim.launch.py')),
         launch_arguments={'rviz': LaunchConfiguration('rviz'),
                           'max_thrust_n': LaunchConfiguration('max_thrust_n'),
+                          'twin': str(twin).lower(),
                           'bridge_config': bridge}.items())]
+    if twin:
+        actions.append(Node(package='risky_tools', executable='twin_estimator', output='screen',
+                            parameters=[{'speed_scale': ParameterValue(LaunchConfiguration('speed_scale'),
+                                                                       value_type=float),
+                                         'yaw0': ParameterValue(LaunchConfiguration('yaw0'),
+                                                                value_type=float)}]))
+    return actions
 
 
 def generate_launch_description():
@@ -74,6 +96,10 @@ def generate_launch_description():
         DeclareLaunchArgument('sim', default_value='true'),
         DeclareLaunchArgument('rviz', default_value='true'),
         DeclareLaunchArgument('max_thrust_n', default_value='20.0'),
+        # Factor sobre la velocidad de /risky/cmd_vel: distancia real recorrida / distancia del gemelo.
+        DeclareLaunchArgument('speed_scale', default_value='1.0'),
+        # Rumbo con el que se enciende el robot: 0 mirando a la pared, 3.1416 de espaldas a ella.
+        DeclareLaunchArgument('yaw0', default_value='0.0'),
         DeclareLaunchArgument('dashboard', default_value='true'),
         OpaqueFunction(function=micro_ros_agent),
         Node(package='risky_tools', executable='camera_bridge', output='screen',

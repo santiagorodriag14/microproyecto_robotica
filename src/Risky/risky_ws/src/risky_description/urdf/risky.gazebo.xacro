@@ -2,32 +2,55 @@
 <!-- Plugins y sensores de Gazebo Fortress. robot_state_publisher y RViz ignoran las etiquetas <gazebo>. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <gazebo>
-    <!-- Skid-steer aproximado con DiffDrive: si gira menos de lo pedido, subir wheel_separation. -->
-    <plugin filename="ignition-gazebo-diff-drive-system" name="ignition::gazebo::systems::DiffDrive">
-      <left_joint>Rueda_l1_Joint</left_joint>
-      <left_joint>Rueda_l2_Joint</left_joint>
-      <left_joint>Rueda_l3_Joint</left_joint>
-      <left_joint>Rueda_l4_Joint</left_joint>
-      <right_joint>Rueda_r1_Joint</right_joint>
-      <right_joint>Rueda_r2_Joint</right_joint>
-      <right_joint>Rueda_r3_Joint</right_joint>
-      <right_joint>Rueda_r4_Joint</right_joint>
-      <wheel_separation>0.255</wheel_separation>
-      <wheel_radius>${wheel_radius}</wheel_radius>
-      <topic>/model/risky/cmd_vel</topic>
-      <odom_topic>/model/risky/odometry</odom_topic>
-      <tf_topic>/model/risky/tf</tf_topic>
-      <frame_id>odom</frame_id>
-      <child_frame_id>base_link</child_frame_id>
-      <odom_publish_frequency>30</odom_publish_frequency>
-    </plugin>
+  <xacro:if value="$(arg twin)">
+    <gazebo>
+      <!-- La pose llega por set_pose desde twin_estimator. Con velocidad cero forzada en cada paso,
+           ni la gravedad ni los contactos desplazan el cuerpo entre una llamada y la siguiente. -->
+      <plugin filename="ignition-gazebo-velocity-control-system"
+              name="ignition::gazebo::systems::VelocityControl">
+        <topic>/model/risky/twin_hold</topic>
+      </plugin>
+      <!-- Un modelo estático no mueve sus articulaciones: por eso el gemelo usa física y este control. -->
+      <plugin filename="ignition-gazebo-joint-position-controller-system"
+              name="ignition::gazebo::systems::JointPositionController">
+        <joint_name>Chasis_frontal_Joint</joint_name>
+        <topic>/model/risky/joint/Chasis_frontal_Joint/cmd_pos</topic>
+        <use_velocity_commands>true</use_velocity_commands>
+        <p_gain>20</p_gain>
+        <cmd_max>6</cmd_max>
+        <cmd_min>-6</cmd_min>
+      </plugin>
+    </gazebo>
+  </xacro:if>
 
-    <plugin filename="ignition-gazebo-joint-state-publisher-system"
-            name="ignition::gazebo::systems::JointStatePublisher">
-      <topic>/model/risky/joint_state</topic>
-    </plugin>
-  </gazebo>
+  <xacro:unless value="$(arg twin)">
+    <gazebo>
+      <!-- Skid-steer aproximado con DiffDrive: si gira menos de lo pedido, subir wheel_separation. -->
+      <plugin filename="ignition-gazebo-diff-drive-system" name="ignition::gazebo::systems::DiffDrive">
+        <left_joint>Rueda_l1_Joint</left_joint>
+        <left_joint>Rueda_l2_Joint</left_joint>
+        <left_joint>Rueda_l3_Joint</left_joint>
+        <left_joint>Rueda_l4_Joint</left_joint>
+        <right_joint>Rueda_r1_Joint</right_joint>
+        <right_joint>Rueda_r2_Joint</right_joint>
+        <right_joint>Rueda_r3_Joint</right_joint>
+        <right_joint>Rueda_r4_Joint</right_joint>
+        <wheel_separation>0.255</wheel_separation>
+        <wheel_radius>${wheel_radius}</wheel_radius>
+        <topic>/model/risky/cmd_vel</topic>
+        <odom_topic>/model/risky/odometry</odom_topic>
+        <tf_topic>/model/risky/tf</tf_topic>
+        <frame_id>odom</frame_id>
+        <child_frame_id>base_link</child_frame_id>
+        <odom_publish_frequency>30</odom_publish_frequency>
+      </plugin>
+
+      <plugin filename="ignition-gazebo-joint-state-publisher-system"
+              name="ignition::gazebo::systems::JointStatePublisher">
+        <topic>/model/risky/joint_state</topic>
+      </plugin>
+    </gazebo>
+  </xacro:unless>
 
   <!-- Empuje en newtons a lo largo del eje de la hélice. Con velocity_control la hélice solo gira
        para verse; la velocidad sale de fluid_density y propeller_diameter (~100 rad/s a 7 N). -->
@@ -42,8 +65,10 @@
       </plugin>
     </gazebo>
   </xacro:macro>
-  <xacro:thruster joint="Aspa_front_Joint"/>
-  <xacro:thruster joint="Aspa_back_Joint"/>
+  <xacro:unless value="$(arg twin)">
+    <xacro:thruster joint="Aspa_front_Joint"/>
+    <xacro:thruster joint="Aspa_back_Joint"/>
+  </xacro:unless>
 
   <gazebo reference="imu_link">
     <sensor name="imu" type="imu">

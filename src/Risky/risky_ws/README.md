@@ -43,13 +43,15 @@ ros2 launch risky_tools robot.launch.py camera_url:=http://172.20.10.3:81/stream
 
 Lanza el agente micro-ROS (UDP 8888), el puente de la ESP32-CAM, la simulación (Gazebo y RViz) y el panel con el video, la IMU y el ToF. La barra inferior del panel marca en rojo el tópico que deja de llegar.
 
-Con el robot real activo, la simulación funciona como gemelo: el radio maneja también al robot de Gazebo (`/risky/cmd_vel`, `/risky/thrust`) y los sensores simulados pasan a `/sim/risky/...` para no mezclarse con los reales. RViz muestra el modelo simulado con el ToF real.
+Con el robot real activo, la simulación funciona como gemelo digital. `twin_estimator` estima la pose del robot real (orientación con un filtro de Mahony sobre la IMU, posición avanzando por el eje x del robot con la velocidad de `/risky/cmd_vel`) y la publica en `/risky/odom` y `/tf`. La IMU mide el segmento trasero: el nodo lo apoya sobre el suelo, la pared o el techo de `risky_course.sdf` (parámetros `wall_x`, `ceiling_z`) y deduce el ángulo de la articulación delantera del contacto de sus ruedas. En Gazebo, el modelo se lanza con `twin:=true` en el xacro (sin tracción ni empuje, con `VelocityControl` en cero y `JointPositionController` en la articulación). Se ubica con el servicio `/world/risky_course/set_pose` y la articulación con `/sim/twin/front_joint`. Los sensores simulados pasan a `/sim/risky/...` y RViz usa la hora del PC, así que dibuja el ToF real. El robot debe encenderse en el origen de Gazebo, y `ros2 service call /risky/twin/reset std_srvs/srv/Trigger` lo devuelve ahí.
 
 | Argumento | Por defecto | |
 |---|---|---|
 | `agent`, `agent_port` | `true`, `8888` | agente micro-ROS |
 | `camera`, `camera_url` | `true`, `http://172.20.10.3:81/stream` | ESP32-CAM |
 | `sim`, `rviz`, `max_thrust_n` | `true`, `true`, `20.0` | Gazebo y RViz |
+| `speed_scale` | `1.0` | distancia real / distancia del gemelo |
+| `yaw0` | `0.0` | rumbo inicial del gemelo (`3.1416` para subir de reversa) |
 | `dashboard` | `true` | panel |
 
 Solo la simulación, con el panel mostrando sus sensores: `ros2 launch risky_tools robot.launch.py agent:=false camera:=false`. Solo el robot real: `sim:=false`.
@@ -66,7 +68,7 @@ El robot real (ESP32 por micro-ROS) y la simulación usan los mismos tópicos. P
 | `/risky/thrust` | `std_msgs/Float32MultiArray` `[delantera, trasera]` 0–1 | ESP32 | `keyboard_teleop` |
 | `/risky/imu/data_raw` | `sensor_msgs/Imu` | ESP32 | IMU de Gazebo |
 | `/risky/tof/range` | `sensor_msgs/Range` | ESP32 | gpu_lidar de 1 rayo |
-| `/risky/odom`, `/tf`, `/joint_states` | | nodo gemelo (pendiente) | DiffDrive y JointStatePublisher |
+| `/risky/odom`, `/tf`, `/joint_states` | | `twin_estimator` | DiffDrive y JointStatePublisher |
 
 El ESP32 publica todo en *best effort*. Quien se suscriba debe usar `qos_profile_sensor_data`; con la QoS por defecto (*reliable*) ROS 2 no los conecta y no llega nada. Por eso `cmd_vel` pasa por `thrust_adapter` antes del bridge de Gazebo.
 

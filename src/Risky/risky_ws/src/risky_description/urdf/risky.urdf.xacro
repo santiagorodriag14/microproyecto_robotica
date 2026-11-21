@@ -1,6 +1,8 @@
 <?xml version="1.0"?>
 <!-- Basado en el export de SolidWorks (urdf_risky). Los cambios respecto al export están en el README. -->
 <robot name="risky" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- twin:=true quita la tracción y el empuje: la pose y la articulación las fija twin_estimator. -->
+  <xacro:arg name="twin" default="false"/>
 
   <xacro:property name="meshes" value="package://risky_description/meshes"/>
   <xacro:property name="wheel_radius" value="0.0175"/>
@@ -136,8 +138,9 @@
   </xacro:macro>
 
   <!-- Posiciones estimadas: reemplazar por las del CAD. La orientación debe coincidir con los ejes impresos en cada módulo. -->
-  <!-- IMU en la PCB del segmento trasero, chip con z hacia arriba y x hacia adelante. -->
-  <xacro:fixed_frame name="imu_link" parent="base_link" xyz="-0.099 0 0.03" rpy="0 0 0"/>
+  <!-- IMU en la PCB del segmento trasero, chip con z hacia arriba y x hacia la cola del robot.
+       Prueba: levantar la cola debe dar aceleración x positiva (el eje x del chip apunta hacia arriba). Si da negativa, el yaw es 0. -->
+  <xacro:fixed_frame name="imu_link" parent="base_link" xyz="-0.099 0 0.03" rpy="0 0 3.1416"/>
   <!-- ToF en el costado izquierdo del segmento delantero, con el haz (eje x) hacia la superficie. -->
   <xacro:fixed_frame name="tof_link" parent="Chasis_frontal_Link" xyz="0.12 0.02 -0.125" rpy="0 0 -1.5708"/>
   <!-- ESP32-CAM al frente del segmento delantero, mirando hacia adelante (x) con z hacia arriba. -->
