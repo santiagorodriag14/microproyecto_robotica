@@ -1,4 +1,5 @@
-# Microproyecto Robótica: Metrología de Alta Precisión de Grietas
+# Microproyecto Robótica: 
+## Risky: Robot escalador teleoperado con adhesión por hélices para inspección de fisuras mediante sensor ToF
 
 Este repositorio contiene el código fuente, diseños de hardware y documentación para el proyecto de investigación: **"Metrología de alta precisión de grietas mediante láser ToF con compensación inercial en tiempo real para teleoperación"**.
 
