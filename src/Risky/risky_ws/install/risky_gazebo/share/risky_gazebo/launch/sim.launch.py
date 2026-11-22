@@ -1,1 +1,0 @@
-/home/santiagorodriag/Risky/risky_ws/src/risky_gazebo/launch/sim.launch.py

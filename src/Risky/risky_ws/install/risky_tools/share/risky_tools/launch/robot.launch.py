@@ -1,1 +1,0 @@
-/home/santiagorodriag/Risky/risky_ws/build/risky_tools/launch/robot.launch.py

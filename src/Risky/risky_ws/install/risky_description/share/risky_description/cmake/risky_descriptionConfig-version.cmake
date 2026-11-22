@@ -1,1 +1,0 @@
-/home/santiagorodriag/Risky/risky_ws/build/risky_description/ament_cmake_core/risky_descriptionConfig-version.cmake

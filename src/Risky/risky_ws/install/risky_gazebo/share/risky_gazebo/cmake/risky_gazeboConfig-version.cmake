@@ -1,1 +1,0 @@
-/home/santiagorodriag/Risky/risky_ws/build/risky_gazebo/ament_cmake_core/risky_gazeboConfig-version.cmake
