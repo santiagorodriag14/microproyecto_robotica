@@ -21,11 +21,6 @@ Este proyecto propone un marco metodológico estructurado para resolver estas in
 ├── 📂 docs/             # Documentación, "Microproyecto Robótica" y "anteproyecto_herramienta.md"
 ├── 📂 hardware/         # Diseños CAD 3D y esquemas de los circuitos de sincronización
 ├── 📂 src/              # Código fuente (El "cerebro" del proyecto)
-│   ├── 📂 control/      # Cinemática, control de motores BLDC y estabilización PID
-│   ├── 📂 sensores/     # Drivers del ToF y sincronización por hardware del IMU
-│   ├── 📂 procesamiento/# Fusión de datos (EKF) y algoritmos de metrología
-│   └── 📂 teleoperacion/# Control remoto, scripts de latencia e interfaz de usuario
-└── 📂 tests/            # Scripts de pruebas unitarias y validación cruzada (R&R)
 ```
 
 ## 🛠️ Requisitos e Instalación
@@ -35,5 +30,4 @@ Este proyecto propone un marco metodológico estructurado para resolver estas in
    git clone https://github.com/santiagorodriag14/microproyecto_robotica.git
    cd repositorio-robotica-tof
    ```
-Probando subida de archivos a github
 
