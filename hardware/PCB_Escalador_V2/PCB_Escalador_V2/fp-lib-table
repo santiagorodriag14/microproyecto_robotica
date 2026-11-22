@@ -1,0 +1,4 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "Conversor_logico") (type "KiCad") (uri "${COMP_AÑADIDOS}/conversor_logico.pretty/Conversor_logico.pretty") (options "") (descr ""))
+)
